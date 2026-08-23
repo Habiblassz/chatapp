@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from database import Base, engine, get_db
@@ -8,6 +8,7 @@ from models import User
 # all the models before it can create tables for them
 from pydantic import BaseModel
 from passlib.context import CryptContext
+import secrets
 
 Base.metadata.create_all(bind=engine)
 
@@ -38,3 +39,24 @@ def signup(data: SignupRequest, db: Session = Depends(get_db)):
     
     return {"message": f"User account created successfully! User_id: {new_user.id}"}
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+@app.post("/login")
+def login(data: LoginRequest, response: Response, db: Session = Depends(get_db)):
+    user_account = db.query(User).filter(User.username == data.username).first()
+
+    if not user_account or not pass_context.verify(data.password, user_account.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid username or password.")
+    
+    session_id = secrets.token_urlsafe(32)
+    sessions[session_id] = user_account.id
+    response.set_cookie(
+        key="session_id",
+        value=session_id,
+        httponly=True,
+        secure=False,
+        samesite="lax"
+    )
+    return {"message": "Welcoome to the home page."}
