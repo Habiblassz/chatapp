@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Response
+from fastapi import FastAPI, Depends, HTTPException, Response, Cookie
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from database import Base, engine, get_db
@@ -60,3 +60,11 @@ def login(data: LoginRequest, response: Response, db: Session = Depends(get_db))
         samesite="lax"
     )
     return {"message": "Welcoome to the home page."}
+
+
+@app.get("/me")
+def get_current_user(session_id: str | None = Cookie(default=None), db: Session=Depends(get_db)):
+    if not session_id or not session_id in sessions:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    current_user = db.query(User).filter(User.id == sessions[session_id]).first()
+    return {"username": current_user.username}
